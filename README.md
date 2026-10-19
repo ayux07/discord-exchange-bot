@@ -1,5 +1,11 @@
 # Discord Exchange Ticket Bot
 
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![discord.py](https://img.shields.io/badge/discord.py-2.4%2B-5865F2.svg)](https://discordpy.readthedocs.io/)
+[![aiosqlite](https://img.shields.io/badge/storage-SQLite-orange.svg)](https://aiosqlite.readthedocs.io/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-working-brightgreen.svg)](https://github.com/ayux07/discord-exchange-bot)
+
 A complete **INR ↔ Crypto exchange ticket bot** built with [`discord.py`](https://discordpy.readthedocs.io/).
 
 It automates the *workflow* of running a peer-to-peer crypto exchange on Discord:
@@ -9,6 +15,23 @@ user profiles, support tickets and staff applications.
 
 > The actual money and crypto transfers are done **manually by your staff**.
 > This bot handles the workflow, calculations, logging and statistics.
+
+---
+
+## Screenshots
+
+Add your own screenshots by dropping images into `assets/`, then link them here.
+
+| Exchange panel | Ticket channel |
+|---|---|
+| ![Exchange panel](assets/panel.png) | ![Ticket channel](assets/ticket.png) |
+
+| Deal log | Leaderboard |
+|---|---|
+| ![Deal log](assets/deal-log.png) | ![Leaderboard](assets/leaderboard.png) |
+
+> **Note:** if an image shows as broken, it just means the screenshot hasn't
+> been added yet.
 
 ---
 
@@ -373,4 +396,5 @@ See `discord_exchange_bot_guide.md` for the full step-by-step build guide.
 
 ## License
 
-Provided as-is for educational use. Review the legal note above before operating commercially.
+Licensed under the [MIT License](LICENSE) — free to use, modify and distribute.
+Review the legal note above before operating a service commercially.
