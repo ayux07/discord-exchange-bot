@@ -8,19 +8,19 @@
 
 A complete **INR ↔ Crypto exchange ticket bot** built with [`discord.py`](https://discordpy.readthedocs.io/).
 
-It automates the *workflow* of running a peer-to-peer crypto exchange on Discord:
-dropdown panels, private ticket channels, live rate calculation, staff
+It automates the workflow of running a peer-to-peer crypto exchange on Discord:
+dropdown panels, private ticket channels, automatic calculations, staff
 claim/complete/close buttons, HTML transcripts, deal logs, leaderboards,
-user profiles, support tickets and staff applications.
+vouches, staff tax tracking, support tickets and staff applications.
 
-> The actual money and crypto transfers are done **manually by your staff**.
-> This bot handles the workflow, calculations, logging and statistics.
+> Money and crypto transfers are done **manually by your staff**. This bot
+> handles the workflow, calculations, logging and statistics.
 
 ---
 
 ## Screenshots
 
-Add your own screenshots by dropping images into `assets/`, then link them here.
+Add screenshots by dropping images into `assets/`, then link them here.
 
 | Exchange panel | Ticket channel |
 |---|---|
@@ -30,29 +30,34 @@ Add your own screenshots by dropping images into `assets/`, then link them here.
 |---|---|
 | ![Deal log](assets/deal-log.png) | ![Leaderboard](assets/leaderboard.png) |
 
-> **Note:** if an image shows as broken, it just means the screenshot hasn't
-> been added yet.
+> If an image shows as broken, the screenshot hasn't been added yet.
 
 ---
 
 ## Features
 
-- **Exchange panel** with a dropdown for 3 exchange types
-  (INR → Crypto, Crypto → INR, Crypto → Crypto)
-- **Payment / coin pickers** (UPI, Bank Transfer, IMPS, UPI apps, … and BTC/ETH/LTC/USDT/TRX)
-- **Details form** (modal) that validates the amount and minimums
-- **Live rates** from the CoinGecko API, cached for 60 seconds
-- **Automatic fee + receive amount calculation** per exchange type
-- **Private ticket channels** visible only to the customer, staff and the bot
-- **Claim / Complete Deal / Close** buttons
-  - atomic `Claim` so two staff can't claim the same ticket
-  - only the staff member who claimed a ticket can complete it
-  - deal log posted to a staff channel on completion
-- **HTML transcripts** saved to a channel and DM'd to the customer on close
-- **`/leaderboard`** (top customers by volume, top staff by deals handled)
-- **`/profile`** (completed deals, total volume, last deal)
-- **Support tickets** with their own panel and buttons
-- **Staff applications** with Accept / Deny buttons
+- **Crix-style panels** with a logo, category titles and fixed INR rates
+- **Exchange panel** with a dropdown for enabled exchange types
+  (INR → Crypto, Crypto → INR, Crypto → Crypto disabled by default)
+- **Two-step picker**: what you send, then what you receive
+- **Details form** (modal) with amount validation and a configurable minimum
+- **Automatic calculation** based on configurable rates / fees (no external API)
+- **Private ticket channels** with clean names (`inr-crypto-0001`) and permission
+  overwrites for the client, staff roles, managers and the bot
+- **Claim / Req MM / Close** buttons
+  - atomic claim so two staff can't claim the same ticket
+  - middleman requests add middleman roles to the channel
+  - only the claimer (or a manager) can complete a deal
+- **Deal logs** posted to a staff channel, with staff tax recorded per deal
+- **HTML transcripts** saved to a channel and DM'd to the client on close
+- **Leaderboards** for customers (by volume) and staff (by volume), plus a
+  monthly `,clb`, leaderboard reset and manual stat adjustments
+- **Profiles** with rank, volume, all-time stats, handled deals and vouches
+- **Vouch format** command (`,v`) and rep command (`,e`)
+- **Staff tax** tracking: `,mytax`, `,stafffees`, `,cleartax`
+- **Support tickets** and **staff applications** with their own panels
+  (applications get Accept / Deny decisions)
+- **Prefix and slash commands** — every command works as `,command` and `/command`
 - **Persistent views** — buttons and dropdowns keep working after a restart
 
 ---
@@ -62,29 +67,25 @@ Add your own screenshots by dropping images into `assets/`, then link them here.
 ```
 Panel message (dropdown)
    └─ user picks: INR to Crypto / Crypto to INR / Crypto to Crypto
-        └─ private (ephemeral) picker: payment method + crypto
-             └─ "Continue" opens a form (amount + payout details)
-                  └─ bot calculates fee + amount using live rates
+        └─ ephemeral picker: what you SEND + what you RECEIVE
+             └─ "Continue" opens a form (amount)
+                  └─ bot calculates the INR amount / fee
                        └─ bot creates a private ticket channel
-                            └─ staff: Claim → handle deal → Complete Deal → Close
-                                 └─ bot saves transcript, posts deal log, updates stats
+                            └─ staff: Claim -> handle deal -> Complete & close
+                                 └─ bot logs the deal, tax and transcript
 ```
 
-### Amounts, fees and minimums
+### Rates and amounts
 
-| Type | "Amount" the user types | Fee applied to | User receives |
-|---|---|---|---|
-| INR to Crypto | INR they send | INR amount | (amount − fee) ÷ coin price in INR |
-| Crypto to INR | INR **value** of crypto sent | INR amount | amount − fee, in INR |
-| Crypto to Crypto | USD value of what they send | USD amount | (amount − fee) ÷ receive coin price in USD |
-
-Fees and minimums are configured in `config.py`:
-
-| Type | Fee (default) | Minimum (default) |
+| Type | Rate used | Calculation |
 |---|---|---|
-| INR → Crypto | 6% | 100 INR |
-| Crypto → INR | 5% | 100 INR |
-| Crypto → Crypto | 3% | 10 USD |
+| INR → Crypto | `inr_to_crypto` (default 104 INR / $) | INR to pay = USD × rate |
+| Crypto → INR | `crypto_to_inr` (default 102 INR / $) | INR received = USD × rate |
+| Crypto → Crypto | `fee_crypto_to_crypto` (default 3%) | receive = USD − fee |
+
+The bot works in **USD values**; the INR rate is only used to show the amount
+to pay or receive. Rates are stored per server and can be changed live with
+`,setrate`, `,setfee` and `,settax`.
 
 ---
 
@@ -93,17 +94,20 @@ Fees and minimums are configured in `config.py`:
 | File | Purpose |
 |---|---|
 | `bot.py` | Starts the bot, loads cogs, syncs slash commands |
-| `config.py` | Brand name, fees, minimums, payment methods, coins |
-| `database.py` | SQLite storage (settings, tickets) via `aiosqlite` |
-| `utils/checks.py` | `is_staff()` helper |
-| `utils/rates.py` | Live prices from CoinGecko, with caching + stale guard |
-| `utils/calc.py` | Fee and amount calculation for the 3 exchange types |
-| `utils/transcript.py` | Turns a channel's history into an HTML file |
-| `utils/tickets.py` | Shared logic: create ticket channel, claim, close |
-| `cogs/setup_cog.py` | `/setup` — stores roles and channels per server |
-| `cogs/exchange.py` | Exchange panel and the full ticket workflow |
-| `cogs/stats.py` | `/leaderboard` and `/profile` |
-| `cogs/support.py` | Support tickets and staff applications |
+| `config.py` | Brand, prefix, rates, currencies, role kinds, vouch format |
+| `database.py` | SQLite schema and helpers via `aiosqlite` |
+| `utils/checks.py` | Role-kind checks, `require()` decorator, safe modals |
+| `utils/calc.py` | Rate lookups and exchange calculations |
+| `utils/confirm.py` | Reusable confirmation view |
+| `utils/ticket_views.py` | Persistent ticket button views per ticket kind |
+| `utils/tickets.py` | Ticket engine: create, claim, MM, complete, close |
+| `utils/transcript.py` | Builds the HTML transcript |
+| `cogs/setup_cog.py` | Server setup, roles, rates and tax commands |
+| `cogs/exchange.py` | Exchange panel and ticket creation flow |
+| `cogs/support.py` | Support and staff application panels |
+| `cogs/ticket_commands.py` | `,claim`, `,uc`, `,close`, `,transcript`, `,v`, `,3p` |
+| `cogs/stats.py` | Leaderboards, profiles, vouches and staff tax |
+| `cogs/calculators.py` | `,calc`, `,rates`, `,help`, `,ping` |
 
 ```
 exchange-bot/
@@ -116,16 +120,19 @@ exchange-bot/
 ├── utils/
 │   ├── __init__.py
 │   ├── checks.py
-│   ├── rates.py
 │   ├── calc.py
-│   ├── transcript.py
-│   └── tickets.py
+│   ├── confirm.py
+│   ├── ticket_views.py
+│   ├── tickets.py
+│   └── transcript.py
 └── cogs/
     ├── __init__.py
     ├── setup_cog.py
     ├── exchange.py
+    ├── support.py
+    ├── ticket_commands.py
     ├── stats.py
-    └── support.py
+    └── calculators.py
 ```
 
 ---
@@ -133,10 +140,8 @@ exchange-bot/
 ## Prerequisites
 
 - **Python 3.10+**
-- A Discord account with a server where you have admin rights
-  (create a **separate test server** first)
-- Developer Mode enabled in Discord
-  (User Settings → Advanced → Developer Mode) to copy IDs
+- A Discord server where you have admin rights (use a test server first)
+- Developer Mode enabled in Discord to copy IDs
 
 ---
 
@@ -145,24 +150,17 @@ exchange-bot/
 ### 1. Create the bot on Discord
 
 1. Go to <https://discord.com/developers/applications> and click **New Application**.
-2. Open **Bot** in the sidebar.
-3. Click **Reset Token**, copy it and keep it secret.
-4. Under **Privileged Gateway Intents**, enable **Message Content Intent**.
-5. (Optional) Turn **Public Bot** off. Save changes.
+2. Open **Bot**, click **Reset Token**, copy it and keep it secret.
+3. Under **Privileged Gateway Intents**, enable **Message Content Intent**.
+4. (Optional) Turn **Public Bot** off. Save changes.
 
-### 2. Invite the bot to your server
+### 2. Invite the bot
 
 1. Go to **OAuth2 → URL Generator**.
 2. **Scopes:** `bot` and `applications.commands`.
-3. **Bot Permissions** (do **not** give Administrator):
-   - View Channels
-   - Manage Channels
-   - Send Messages
-   - Embed Links
-   - Attach Files
-   - Read Message History
-   - Mention Everyone (optional)
-4. Open the generated URL, pick your server, click **Authorize**.
+3. **Bot Permissions:** View Channels, Manage Channels, Send Messages,
+   Embed Links, Attach Files, Read Message History, Mention Everyone.
+4. Open the URL, pick your server and authorize.
 
 ### 3. Clone and install
 
@@ -176,15 +174,13 @@ pip install -r requirements.txt
 
 ### 4. Configure `.env`
 
-Create a `.env` file in the project root:
-
 ```env
 DISCORD_TOKEN=your_bot_token_here
 DEV_GUILD_ID=your_test_server_id_here
 ```
 
-`DEV_GUILD_ID` makes slash commands appear **instantly** in your test server.
-Right-click the server icon → Copy Server ID. Remove it in production.
+`DEV_GUILD_ID` makes slash commands appear instantly in that server. Remove it
+in production (commands then sync globally, which can take up to an hour).
 
 ### 5. Run
 
@@ -192,110 +188,157 @@ Right-click the server icon → Copy Server ID. Remove it in production.
 python bot.py
 ```
 
-You should see `Logged in as ... (ID: ...)`.
-
 ---
 
 ## Configure the server
 
-Create this structure in your Discord server (names are up to you):
+Create this structure (names are up to you):
 
 ```
-📁 EXCHANGE            ← put the panels here
-   #exchange           ← public: exchange panel
-   #support            ← public: support panel
-   #apply              ← public: staff application panel
-📁 TICKETS             ← bot creates ticket channels here
+📁 EXCHANGE
+   #exchange           ← exchange panel
+   #support            ← support panel
+   #apply              ← staff application panel
+📁 TICKETS             ← ticket channels are created here
 📁 STAFF ONLY
-   #deal-logs          ← only staff can see
-   #transcripts        ← only staff can see
-   #applications       ← only staff can see
+   #deal-logs          ← completed deal logs
+   #transcripts        ← closed ticket transcripts
 ```
 
-Also create a **Staff** role.
+Create roles such as **Exchanger**, **Support**, **Manager**, **Middleman**.
 
-**Permission rule:** the bot's role must have View Channel, Send Messages,
-Read Message History, Attach Files and Embed Links (server-wide or in the
-TICKETS category), because a bot can only grant permissions it has itself.
-Move the bot's role **above** the Staff role in Server Settings → Roles.
+The bot's role must have View Channel, Manage Channels, Send Messages, Embed
+Links, Attach Files and Read Message History in the ticket category. Move the
+bot's role **above** the staff roles it needs to manage.
 
-Then run:
+### Initial setup
 
 ```
-/setup staff_role:@Staff ticket_category:TICKETS deal_log_channel:#deal-logs transcript_channel:#transcripts applications_channel:#applications
+,setup #TICKETS #deal-logs #transcripts
+,addrole exchanger @Exchanger
+,addrole support @Support
+,addrole application @Owner
+,addrole middleman @Middleman
+,addrole manager @Manager
+,roles
 ```
 
-And post the panels:
+Then post the panels in their channels:
 
-- in `#exchange` → `/exchange_panel`
-- in `#support`  → `/support_panel`
-- in `#apply`    → `/apply_panel`
+```
+,exchangepanel
+,supportpanel
+,applypanel
+```
+
+### Optional branding
+
+Drop a logo at `assets/logo.png`. It is used as the panel and ticket thumbnail.
 
 ---
 
 ## Commands
 
-| Command | Who | Description |
-|---|---|---|
-| `/setup` | Admin | Store staff role and channels for this server |
-| `/exchange_panel` | Admin | Post the exchange panel in the current channel |
-| `/support_panel` | Admin | Post the support panel |
-| `/apply_panel` | Admin | Post the staff application panel |
-| `/leaderboard` | Everyone | Top customers (by volume) or top staff (deals handled) |
-| `/profile` | Everyone | Exchange stats for a user |
+### Everyone
+
+| Command | Description |
+|---|---|
+| `,calc <type> <amount_usd> <send> <receive>` | Calculate an exchange |
+| `,rates` | Show current rates, fee and tax |
+| `,lb [users\|staff]` | Leaderboard since the last reset |
+| `,clb [users\|staff]` | Leaderboard for the current month |
+| `,p [@user]` | Exchange profile |
+| `,deals [@user]` | Last 10 completed deals |
+| `,help` | List commands |
+| `,ping` | Bot latency |
+
+### Ticket commands
+
+| Command | Description |
+|---|---|
+| `,claim` | Claim the current ticket |
+| `,uc` / `,unclaim` | Unclaim the ticket |
+| `,close` | Close (optionally complete) the ticket |
+| `,transcript` | Generate an HTML transcript |
+| `,v` | Generate a vouch message for the deal |
+| `,3p @user` | Add/remove a third party in the ticket |
+
+### Staff
+
+| Command | Description |
+|---|---|
+| `,mytax` | Tax you currently owe |
+| `,e @user [note]` | Add a vouch for a user |
+
+### Managers
+
+| Command | Description |
+|---|---|
+| `,exchangepanel`, `,supportpanel`, `,applypanel` | Post panels |
+| `,setrate <type> <value>` | Set INR rate |
+| `,setfee <percent>` | Set crypto-to-crypto fee |
+| `,settax <percent>` | Set staff tax percent |
+| `,stafffees` | Tax owed by all staff |
+| `,cleartax @user` | Mark a staff member's tax as paid |
+| `,addlb @user <deals> <volume>` | Add manual leaderboard stats |
+| `,setlb @user <deals> <volume>` | Set a user's leaderboard totals |
+| `,resetlb` | Start a new leaderboard (history kept) |
+
+### Admins
+
+| Command | Description |
+|---|---|
+| `,setup <category> <deal_logs> <transcripts>` | Store channels |
+| `,addrole <kind> @role` | Give a role a permission kind |
+| `,removerole <kind> @role` | Remove a role from a kind |
+| `,roles` | Show configured roles |
 
 ---
 
 ## Configuration (`config.py`)
 
-Everything you might want to tweak lives in `config.py`:
-
-- `BRAND` — your brand name shown on panels and embeds
+- `PREFIX` — command prefix (default `,`)
+- `BRAND` — brand name on panels and embeds
 - `EMBED_COLOR` — embed accent color
-- `EX_TYPES` — per-type label, slug, fee (%) and minimum
-- `INR_METHODS` — payment methods shown in the picker
-- `CRYPTOS` — supported coins (symbols must exist in `utils/rates.py` `COIN_IDS`)
+- `TIMEZONE` — timezone used in ticket footers
+- `MIN_USD` — minimum exchange amount
+- `DEFAULT_RATES`, `DEFAULT_C2C_FEE`, `DEFAULT_TAX_PERCENT` — defaults
+- `EX_TYPES` — per-type labels, slugs and whether they are enabled
+- `INR_METHODS` — payment methods (label → short code)
+- `CRYPTOS` — supported coin symbols
+- `ROLE_KINDS` — descriptions for role kinds
+- `VOUCH_FORMAT` — template used by `,v`
 
-To add a coin:
-
-1. Add the symbol to `CRYPTOS` in `config.py`.
-2. Add its CoinGecko id to `COIN_IDS` in `utils/rates.py`.
+Add a coin by adding its symbol to `CRYPTOS`. Add a payment method by adding a
+`"Label": "CODE"` entry to `INR_METHODS`.
 
 ---
 
 ## Testing checklist
 
-Use a second Discord account (or a friend) as the customer.
-
 | # | Test | Expected result |
 |---|---|---|
-| 1 | Pick **INR to Crypto** | Ephemeral picker with two dropdowns |
-| 2 | Press Continue without choosing | "Please choose both options first." |
-| 3 | Choose UPI + USDT, Continue | Form opens |
-| 4 | Type `abc` as amount | "Amount must be a number." |
-| 5 | Type `10` | Minimum error |
-| 6 | Type `1000` + wallet address | Ticket channel + embed with fee and receive amount |
-| 7 | Pick an exchange type again | "You already have an open ticket" |
-| 8 | Customer presses **Claim** | "Only staff can claim tickets." |
-| 9 | Staff presses **Claim** | Button disables, claim message appears |
-| 10 | Different staff presses **Complete Deal** | Refused (only the claimer can) |
-| 11 | Claimer presses **Complete Deal** | Deal Logged embed in `#deal-logs` |
-| 12 | Press **Close** → confirm | Transcript saved, DM to user, channel deleted after 5s |
-| 13 | `/leaderboard` and `/profile` | The deal shows up |
-| 14 | Restart the bot, then use panel + ticket buttons | Everything still works |
-| 15 | Crypto to Crypto with the same coin both sides | Refused |
+| 1 | `,exchangepanel` | Panel is posted |
+| 2 | Pick **INR to Crypto**, choose UPI + USDT, Continue | Form opens |
+| 3 | Type an invalid or too-small amount | Clear validation error |
+| 4 | Submit a valid amount | Private ticket with calculated INR amount |
+| 5 | Open a second exchange ticket | Refused: existing open ticket |
+| 6 | Staff presses **Claim** | Claim succeeds; a second staff cannot claim |
+| 7 | Press **Req MM** | Middleman roles are added and pinged |
+| 8 | Press **Close → Deal completed** | Deal log posted, tax recorded, transcript sent |
+| 9 | `,lb`, `,clb`, `,p`, `,deals` | The deal appears |
+| 10 | `,mytax`, `,stafffees`, `,cleartax` | Tax tracking works |
+| 11 | Restart the bot, use panel and ticket buttons | Everything still works |
 
 ---
 
 ## Deployment (24/7)
 
-The bot only runs while the Python process runs. Options:
-
 | Option | Notes |
 |---|---|
-| **VPS** (Hetzner, DigitalOcean, Contabo, Oracle free tier) | Best control, ~₹300+/month |
-| **Railway / Fly.io / Render** | Easy deploys. Add a **persistent volume** for `exchange.db`, or data is lost on redeploy |
-| **Home PC / Raspberry Pi** | Free, but goes down when power/internet does |
+| **VPS** (Hetzner, DigitalOcean, Contabo, Oracle free tier) | Best control |
+| **Railway / Fly.io / Render** | Add a **persistent volume** for `exchange.db` |
+| **Home PC / Raspberry Pi** | Free, but goes down with power/internet |
 
 ### VPS with systemd (Ubuntu)
 
@@ -306,7 +349,7 @@ cd exchange-bot
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-nano .env                      # add DISCORD_TOKEN (no DEV_GUILD_ID in production)
+nano .env
 ```
 
 Create `/etc/systemd/system/exchange-bot.service`:
@@ -328,41 +371,28 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Enable and start:
-
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now exchange-bot
-sudo systemctl status exchange-bot
-journalctl -u exchange-bot -f      # live logs
+journalctl -u exchange-bot -f
 ```
 
-**Back up `exchange.db` regularly** (e.g. a daily cron job). It holds all deal history.
+**Back up `exchange.db` regularly** — it holds all tickets, deals and settings.
 
 ---
 
 ## Security & scam protection
 
-### Bot security
-
-- **Never commit `.env`.** If the token leaks, click Reset Token immediately.
-- Give the bot only the permissions listed above, **not Administrator**.
-- All staff actions check `is_staff()`. Keep it that way for new buttons.
-- Always use `?` placeholders in SQL. Never build queries from user input.
-- Protect your server and any VPS accounts with 2FA.
-
-### Operational rules for staff (strongly recommended)
-
-P2P exchange servers are common targets for scammers and chargeback fraud:
-
-- Staff **never** move funds outside the ticket channel, and never via DMs.
-- Only accept payment **from an account in the customer's own name**.
-- Confirm funds have **actually settled** before releasing crypto — screenshots can be faked.
-- Crypto transfers are irreversible: double-check addresses and networks
-  (e.g. USDT TRC20 vs BEP20).
-- Start with low limits for new customers.
-- Keep every transcript — they are your evidence in a dispute.
-- Never share private keys, seed phrases or login codes.
+- **Never commit `.env`.** If the token leaks, reset it immediately.
+- Give the bot only the permissions it needs.
+- Every staff action checks role kinds. Keep it that way for new buttons.
+- Always use `?` placeholders in SQL; never build queries from user input.
+- Protect your Discord and VPS accounts with 2FA.
+- Staff never move funds outside the ticket channel or via DMs.
+- Only accept payment from an account in the customer's own name.
+- Confirm funds have settled before releasing crypto — screenshots can be faked.
+- Crypto transfers are irreversible: double-check addresses and networks.
+- Keep every transcript — they are evidence in a dispute.
 
 ### Legal note
 
@@ -376,21 +406,16 @@ legal advice. Consult a qualified professional before operating commercially.
 
 | Problem | Cause and fix |
 |---|---|
-| `LoginFailure: Improper token` | Wrong/missing `DISCORD_TOKEN`. Reset token, update `.env`. |
-| `PrivilegedIntentsRequired` | Enable **Message Content Intent** in the Developer Portal → Bot. |
-| Slash commands don't appear | Set `DEV_GUILD_ID` for instant sync; check the bot was invited with the `applications.commands` scope; restart Discord (Ctrl+R). |
-| "This interaction failed" | Took longer than 3s to respond — call `await interaction.response.defer()` first. |
-| Buttons stop working after restart | View missing `timeout=None`, a `custom_id`, or `bot.add_view(...)` in `cog_load`. |
-| "I could not create the ticket channel" | Bot lacks **Manage Channels**, lacks a permission it tries to grant, or the category is full (50 channels). |
-| Transcript messages are empty | Message Content Intent off in code or portal. |
-| Staff role not pinged | Role not mentionable and bot lacks **Mention Everyone**. |
-| Rates fail ("Could not fetch live rates") | CoinGecko rate limit or network issue. Wait a minute. |
-| `ModuleNotFoundError: No module named 'utils'` | Run `python bot.py` from the project folder; ensure `utils/__init__.py` exists. |
-| `sqlite3.OperationalError: no such column` | Schema changed after DB creation. Delete `exchange.db` (dev only) or `ALTER TABLE`. |
-| Dropdown shows the old choice | Ensure the panel message edit at the end of `ExchangeTypeSelect.callback` is present. |
-| Two staff claim the same ticket | Keep the `claimed_by IS NULL` condition in the claim SQL. |
+| `LoginFailure: Improper token` | Wrong/missing `DISCORD_TOKEN`. Reset it and update `.env`. |
+| `PrivilegedIntentsRequired` | Enable **Message Content Intent**. |
+| Slash commands don't appear | Set `DEV_GUILD_ID`; check the `applications.commands` scope; restart Discord. |
+| Buttons stop working after restart | Ensure `timeout=None`, `custom_id`, and `bot.add_view(...)` in `cog_load`. |
+| Cannot create ticket channel | Bot lacks **Manage Channels**, lacks a permission it grants, or the category is full. |
+| Empty transcripts | Message Content Intent is off. |
+| Rates look wrong | Use `,setrate`, `,setfee`, `,settax`. Existing tickets keep their original rate. |
+| `no such column` | Old schema. Delete `exchange.db` in development. |
 
-See `discord_exchange_bot_guide.md` for the full step-by-step build guide.
+See `discord_exchange_bot_guide_v2.md` for the full step-by-step build guide.
 
 ---
 

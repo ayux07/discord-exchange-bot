@@ -1,5 +1,7 @@
+# utils/transcript.py
 import html
 import discord
+
 
 async def build_transcript(channel: discord.TextChannel) -> bytes:
     rows = []
@@ -10,8 +12,7 @@ async def build_transcript(channel: discord.TextChannel) -> bytes:
 
         extras = []
         for a in m.attachments:
-            url, name = html.escape(a.url), html.escape(a.filename)
-            extras.append(f'<div class="att">📎 <a href="{url}">{name}</a></div>')
+            extras.append(f'<div class="att">📎 <a href="{html.escape(a.url)}">{html.escape(a.filename)}</a></div>')
 
         for e in m.embeds:
             parts = []
@@ -20,30 +21,24 @@ async def build_transcript(channel: discord.TextChannel) -> bytes:
             if e.description:
                 parts.append(html.escape(e.description).replace("\n", "<br>"))
             for f in e.fields:
-                parts.append(
-                    f"<b>{html.escape(f.name)}:</b> "
-                    f"{html.escape(f.value).replace(chr(10), '<br>')}"
-                )
+                parts.append(f"<b>{html.escape(f.name)}:</b> {html.escape(f.value).replace(chr(10), '<br>')}")
             extras.append('<div class="embed">' + "<br>".join(parts) + "</div>")
 
         rows.append(
-            f'<div class="msg"><div class="meta"><b>{author}</b> '
-            f'<span class="ts">{ts}</span></div>'
+            f'<div class="msg"><div class="meta"><b>{author}</b> <span class="ts">{ts}</span></div>'
             f'<div>{body}</div>{"".join(extras)}</div>'
         )
 
     page = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<title>Transcript - {html.escape(channel.name)}</title>
+<html><head><meta charset="utf-8"><title>Transcript - {html.escape(channel.name)}</title>
 <style>
 body {{ background:#313338; color:#dbdee1; font-family:Arial,sans-serif; padding:20px; }}
 .msg {{ padding:8px 0; border-bottom:1px solid #3f4147; }}
-.meta {{ margin-bottom:2px; }} .ts {{ color:#949ba4; font-size:12px; margin-left:8px; }}
+.ts {{ color:#949ba4; font-size:12px; margin-left:8px; }}
 .embed {{ border-left:4px solid #5865F2; background:#2b2d31; padding:8px; margin-top:4px; }}
 .att a {{ color:#00a8fc; }}
 </style></head><body>
-<h2>#{html.escape(channel.name)}</h2>
-<p>{len(rows)} messages</p>
+<h2>#{html.escape(channel.name)}</h2><p>{len(rows)} messages</p>
 {"".join(rows)}
 </body></html>"""
     return page.encode("utf-8")
